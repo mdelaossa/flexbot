@@ -48,7 +48,7 @@ module.exports = (robot) ->
   doAutomaticWorkout = ->
     interval = chooseNextInterval()
     exercise = chooseExercise()
-    people = choosePeople()
+    people = choosePeople().map((user) -> makeMention(user))
 
     robot.messageRoom exerciseRoom, "#{people.join(', ')}: Do #{exercise.amount} #{exercise.exercise.unit} of #{exercise.exercise.name} - #{exercise.exercise.image}"
     robot.messageRoom exerciseRoom, "Next workout in #{interval} minutes"
@@ -67,7 +67,7 @@ module.exports = (robot) ->
     users = activeUsers()
     numPeople = users.length
     maxPeople = 1 if numPeople < maxPeople
-    _.chain(users).sample(maxPeople).pluck('name')
+    _.sample(users, maxPeople)
 
   chooseExercise = ->
     exercise = _.sample getExercises()
@@ -77,16 +77,6 @@ module.exports = (robot) ->
     amount = Math.floor(Math.random() * (max - min) + min)
     robot.logger.debug "Picked #{amount} reps"
     return { exercise: exercise, amount: amount }
-
-  activeUsers = (channel=exerciseRoom) ->
-    robot.logger.debug "Getting channel object for #{channel}"
-    channel = robot.adapter.client.getChannelGroupOrDMByName(channel)
-
-    robot.logger.debug "Getting active users in #{channel.name}"
-
-    return (channel.members || [])
-    .map( (id) -> robot.adapter.client.users[id] )
-    .filter( (user) -> !!user && !user.is_bot && user.presence == 'active' )
 
   getExercises = ->
     robot.brain.get('exercises') or []
@@ -113,6 +103,20 @@ module.exports = (robot) ->
 
   updateBrain = (exercises) ->
     robot.brain.set 'exercises', exercises
+
+  # ===== Slack specific =====
+  activeUsers = (channel=exerciseRoom) ->
+    robot.logger.debug "Getting channel object for #{channel}"
+    channel = robot.adapter.client.getChannelGroupOrDMByName(channel)
+
+    robot.logger.debug "Getting active users in #{channel.name}"
+
+    return (channel.members || [])
+    .map( (id) -> robot.adapter.client.users[id] )
+    .filter( (user) -> !!user && !user.is_bot && user.presence == 'active' )
+
+  makeMention = (user) ->
+    "<@#{user.id}>"
 
 
   # ======= ROBOT LISTENERS FROM HERE ON ========
