@@ -5,6 +5,8 @@
 #   exercise me - Get a random exercise to do
 #   hubot add exercise <name> <min> <max> <unit> [imageURL] - Add an exercise to the list
 #   hubot remove exercise <name> - Remove exercise <name> from the list
+#   hubot list exercises - List all exercise names hubot knows about
+#   hubot show exercise <name> - Show info about exercise <name>
 #   hubot stop exercising - Stop picking random people to work out
 #   hubot start exercising - Start picking random people to work out
 #
@@ -59,7 +61,7 @@ module.exports = (robot) ->
     robot.brain.get('exercises') or []
 
   getExerciseForName = (name) ->
-    _.where getExercises(), name: name
+    _.find getExercises(), name: name
 
   saveExercise = (name, min, max, unit, image) ->
     exercises = getExercises()
@@ -108,4 +110,14 @@ module.exports = (robot) ->
     exercise = removeExercise name
     message = "Ok, removed exercise #{exercise.name} with minimum #{exercise.min} and maximum #{exercise.max} #{exercise.unit}, with image: #{exercise.image || 'none'}" if exercise
     res.send message or "Exercise not found"
+
+  robot.respond /list exercises/i, (res) ->
+    exercises = getExercises()
+    names = _.pluck exercises, 'name'
+    res.send "Exercises I know about: #{names.join(', ')}"
+
+  robot.respond /show exercise (.*)/i, (res) ->
+    exercise = getExerciseForName(res.match[1])
+    message = "#{exercise.name}: Min: #{exercise.min}, Max: #{exercise.max} #{exercise.unit}. Image: #{exercise.image or 'None'}" if exercise
+    res.send message or "I don't know about that exercise"
 
