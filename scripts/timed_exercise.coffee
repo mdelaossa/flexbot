@@ -12,9 +12,12 @@
 #
 # Configuration:
 #   HUBOT_EXERCISE_ROOM - The room where hubot will automatically tell people to work out
+#   HUBOT_EXERCISE_MAX_PEOPLE - Amount of people to choose for workout
+#   HUBOT_EXERCISE_MIN_INTERVAL - Minimum interval between workouts. Will be scaled according to active people
+#   HUBOT_EXERCISE_MAX_INTERVAL - Maximum interval between workouts. Will be scaled according to active people
 #
 # Notes:
-#   If HUBOT_EXERCISE_ROOM isn't set the bot will not automatically choose work outs
+#   If HUBOT_EXERCISE_ROOM isn't set the bot will not automatically choose work outs until you give it the command
 #
 # Dependencies:
 #   underscore
