@@ -49,6 +49,7 @@ module.exports = (robot) ->
     interval = chooseNextInterval()
     exercise = chooseExercise()
     people = choosePeople().map((user) -> makeMention(user))
+    people = ['<!here>'] if Math.random() < 0.10 # 10% of the time, call out the entire channel
 
     robot.messageRoom exerciseRoom, "#{people.join(', ')}: Do #{exercise.amount} #{exercise.exercise.unit} of #{exercise.exercise.name} - #{exercise.exercise.image}"
     robot.messageRoom exerciseRoom, "Next workout in #{interval} minutes"
