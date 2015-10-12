@@ -51,8 +51,25 @@ module.exports = (robot) ->
     people = choosePeople().map((user) -> makeMention(user))
     people = ['<!here>'] if Math.random() < 0.10 # 10% of the time, call out the entire channel
 
-    robot.messageRoom exerciseRoom, "#{people.join(', ')}: Do #{exercise.amount} #{exercise.exercise.unit} of #{exercise.exercise.name} - #{exercise.exercise.image}"
-    robot.messageRoom exerciseRoom, "Next workout in #{interval} minutes"
+    message = "#{people.join(', ')}: Do #{exercise.amount} #{exercise.exercise.unit} of #{exercise.exercise.name} - #{exercise.exercise.image}"
+
+    #robot.messageRoom exerciseRoom, message
+    robot.emit 'slack-attachment',
+      channel: exerciseRoom,
+      text: "Time to workout! Next workout in #{interval} minutes"
+      content:
+        fallback: message,
+        title: "Exercise: #{exercise.exercise.name}",
+        thumb_url: exercise.exercise.image,
+        fields: [{
+          title: 'Amount',
+          value: "#{exercise.amount} #{exercise.exercise.unit}",
+          short: true
+        }, {
+          title: 'Assigned to'
+          value: people.join(', ')
+          short: true
+        }]
 
     exerciseTimeout = setTimeout ->
       doAutomaticWorkout()
@@ -128,7 +145,22 @@ module.exports = (robot) ->
     if exercise
       message = "Do #{chosen.amount} #{exercise.unit} of #{exercise.name}!"
       message = "#{message} - #{exercise.image}" if exercise.image
-    res.reply message or "No exercises in list! Add some with the 'add exercise' command"
+
+      robot.emit 'slack-attachment',
+        channel: exerciseRoom,
+        content:
+          fallback: message,
+          title: "Exercise: #{exercise.name}",
+          thumb_url: exercise.image,
+          fields: [{
+            title: 'Amount',
+            value: "#{chosen.amount} #{exercise.unit}",
+            short: true
+          }, {
+            title: 'Assigned to'
+            value: makeMention(res.message.user)
+            short: true
+          }]
 
   # name min max unit imageURL
   robot.respond /add exercise (.*) (\d+) (\d+) (\S+)(?: (.*))?/i, (res) ->
