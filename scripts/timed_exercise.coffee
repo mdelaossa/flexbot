@@ -25,12 +25,15 @@ _ = require('underscore')
 module.exports = (robot) ->
 
   exerciseRoom = process.env.HUBOT_EXERCISE_ROOM
+  maxPeople = parseInt(process.env.HUBOT_EXERCISE_MAX_PEOPLE, 10) || 3
+  minInterval = parseInt(process.env.HUBOT_EXERCISE_MIN_INTERVAL, 10) || 30
+  maxInterval = parseInt(process.env.HUBOT_EXERCISE_MAX_INTERVAL, 10) || 40
 
   exerciseTimeout = null
 
   if exerciseRoom?
     exerciseTimeout = setTimeout ->
-      robot.messageRoom 'flexbot-test', 'Do an exercise'
+      doAutomaticWorkout()
     , 10 * 1000
 
 
@@ -39,8 +42,32 @@ module.exports = (robot) ->
     robot.enter (res) ->
       res.send res.random enterReplies
 
+  doAutomaticWorkout = ->
+    interval = chooseNextInterval()
+    exercise = chooseExercise()
+    people = choosePeople()
+
+    robot.messageRoom exerciseRoom, "#{people.join(', ')}: Do #{exercise.amount} #{exercise.exercise.unit} of #{exercise.exercise.name} - #{exercise.exercise.image}"
+    robot.messageRoom exerciseRoom, "Next workout in #{interval} minutes"
+
+    exerciseTimeout = setTimeout ->
+      doAutomaticWorkout()
+    , 1000 * 60 * interval
+
+  chooseNextInterval = ->
+    numPeople = activeUsers().length
+    numPeople = maxPeople * 4 if ( numPeople > maxPeople*4 )
+    scaleFactor = 5 - ( numPeople / maxPeople )
+    interval = Math.floor(Math.random() * (maxInterval - minInterval) + minInterval) * scaleFactor
+
+  choosePeople = ->
+    users = activeUsers()
+    numPeople = users.length
+    maxPeople = 1 if numPeople < maxPeople
+    _.chain(users).sample(maxPeople).pluck('name')
+
   chooseExercise = ->
-    exercise = chooseRandomFromArray getExercises()
+    exercise = _.sample getExercises()
     robot.logger.debug exercise
     min = parseInt(exercise.min, 10)
     max = parseInt(exercise.max, 10)
@@ -48,8 +75,8 @@ module.exports = (robot) ->
     robot.logger.debug "Picked #{amount} reps"
     return { exercise: exercise, amount: amount }
 
-  activeUsers = (channel) ->
-    channel = exerciseRoom if !channel
+  activeUsers = (channel=exerciseRoom) ->
+    robot.logger.debug "Getting channel object for #{channel}"
     channel = robot.adapter.client.getChannelGroupOrDMByName(channel)
 
     robot.logger.debug "Getting active users in #{channel.name}"
@@ -57,9 +84,6 @@ module.exports = (robot) ->
     return (channel.members || [])
     .map( (id) -> robot.adapter.client.users[id] )
     .filter( (user) -> !!user && !user.is_bot && user.presence == 'active' )
-
-  chooseRandomFromArray = (array) ->
-    array[Math.floor(Math.random() * array.length)]
 
   getExercises = ->
     robot.brain.get('exercises') or []
@@ -125,4 +149,12 @@ module.exports = (robot) ->
     exercise = getExerciseForName(res.match[1])
     message = "#{exercise.name}: Min: #{exercise.min}, Max: #{exercise.max} #{exercise.unit}. Image: #{exercise.image or 'None'}" if exercise
     res.send message or "I don't know about that exercise"
+
+  robot.respond /start exercising/i, (res) ->
+    exerciseRoom = res.envelope.room if !exerciseRoom
+    doAutomaticWorkout()
+
+  robot.respond /stop exercising/i, (res) ->
+    clearTimeout(exerciseTimeout)
+    res.send "Stopping automatic workout"
 
