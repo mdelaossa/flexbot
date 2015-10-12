@@ -40,9 +40,13 @@ module.exports = (robot) ->
       res.send res.random enterReplies
 
   chooseExercise = ->
-    #TODO: choose an exercise
-    exercises = getExercises()
-    chooseRandomFromArray exercises
+    exercise = chooseRandomFromArray getExercises()
+    robot.logger.debug exercise
+    min = parseInt(exercise.min, 10)
+    max = parseInt(exercise.max, 10)
+    amount = Math.floor(Math.random() * (max - min) + min)
+    robot.logger.debug "Picked #{amount} reps"
+    return { exercise: exercise, amount: amount }
 
   activeUsers = (channel) ->
     channel = exerciseRoom if !channel
@@ -87,9 +91,10 @@ module.exports = (robot) ->
   # ======= ROBOT LISTENERS FROM HERE ON ========
 
   robot.hear /exercise me/, (res) ->
-    exercise = chooseExercise()
+    chosen = chooseExercise()
+    exercise = chosen.exercise
     if exercise
-      message = "Do 3 #{exercise.unit} of #{exercise.name}!"
+      message = "Do #{chosen.amount} #{exercise.unit} of #{exercise.name}!"
       message = "#{message} - #{exercise.image}" if exercise.image
     res.reply message or "No exercises in list! Add some with the 'add exercise' command"
 
