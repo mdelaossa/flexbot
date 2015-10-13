@@ -79,7 +79,7 @@ module.exports = (robot) ->
     numPeople = activeUsers().length
     numPeople = maxPeople * 4 if ( numPeople > maxPeople*4 )
     scaleFactor = 5 - ( numPeople / maxPeople )
-    interval = Math.floor(Math.random() * (maxInterval - minInterval) + minInterval) * scaleFactor
+    interval = Math.floor((Math.random() * (maxInterval - minInterval) + minInterval) * scaleFactor)
 
   choosePeople = ->
     users = activeUsers()
