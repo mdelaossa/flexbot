@@ -40,11 +40,6 @@ module.exports = (robot) ->
     , 10 * 1000
 
 
-    enterReplies = ['Welcome to Camp Hell!', 'Thanks for joining! You will be in shape in no time!', 'Welcome to the gym that never stops!']
-
-    robot.enter (res) ->
-      res.send res.random enterReplies
-
   doAutomaticWorkout = ->
     interval = chooseNextInterval()
     exercise = chooseExercise()
@@ -52,24 +47,9 @@ module.exports = (robot) ->
     people = ['<!here>'] if Math.random() < 0.10 # 10% of the time, call out the entire channel
 
     message = "#{people.join(', ')}: Do #{exercise.amount} #{exercise.exercise.unit} of #{exercise.exercise.name} - #{exercise.exercise.image}"
+    text = "Time to workout! Next workout in #{interval} minutes"
 
-    #robot.messageRoom exerciseRoom, message
-    robot.emit 'slack-attachment',
-      channel: exerciseRoom,
-      text: "Time to workout! Next workout in #{interval} minutes"
-      content:
-        fallback: message,
-        title: "Exercise: #{exercise.exercise.name}",
-        thumb_url: exercise.exercise.image,
-        fields: [{
-          title: 'Amount',
-          value: "#{exercise.amount} #{exercise.exercise.unit}",
-          short: true
-        }, {
-          title: 'Assigned to'
-          value: people.join(', ')
-          short: true
-        }]
+    sendSlackWorkout(exerciseRoom, exercise, people, message, text)
 
     exerciseTimeout = setTimeout ->
       doAutomaticWorkout()
@@ -136,6 +116,25 @@ module.exports = (robot) ->
   makeMention = (user) ->
     "<@#{user.id}>"
 
+  sendSlackWorkout = (channel, exercise, people, fallback = null, text = null) ->
+    robot.emit 'slack-attachment',
+      channel: channel,
+      content:
+        color: 'good'
+        text: text
+        fallback: fallback,
+        title: "Exercise: #{exercise.exercise.name}",
+        thumb_url: exercise.exercise.image,
+        fields: [{
+          title: 'Amount',
+          value: "#{exercise.amount} #{exercise.exercise.unit}",
+          short: true
+        }, {
+          title: 'Assigned to'
+          value: people.join(', ')
+          short: true
+        }]
+
 
   # ======= ROBOT LISTENERS FROM HERE ON ========
 
@@ -146,21 +145,7 @@ module.exports = (robot) ->
       message = "Do #{chosen.amount} #{exercise.unit} of #{exercise.name}!"
       message = "#{message} - #{exercise.image}" if exercise.image
 
-      robot.emit 'slack-attachment',
-        channel: exerciseRoom,
-        content:
-          fallback: message,
-          title: "Exercise: #{exercise.name}",
-          thumb_url: exercise.image,
-          fields: [{
-            title: 'Amount',
-            value: "#{chosen.amount} #{exercise.unit}",
-            short: true
-          }, {
-            title: 'Assigned to'
-            value: makeMention(res.message.user)
-            short: true
-          }]
+      sendSlackWorkout(res.envelope.room, chosen, [makeMention(res.message.user)], message)
 
   # name min max unit imageURL
   robot.respond /add exercise (.*) (\d+) (\d+) (\S+)(?: (.*))?/i, (res) ->
@@ -181,20 +166,50 @@ module.exports = (robot) ->
     res.send message or "Exercise not found"
 
   robot.respond /list exercises/i, (res) ->
-    exercises = getExercises()
-    names = _.pluck exercises, 'name'
+    names = _.pluck getExercises(), 'name'
     res.send "Exercises I know about: #{names.join(', ')}"
 
   robot.respond /show exercise (.*)/i, (res) ->
     exercise = getExerciseForName(res.match[1])
-    message = "#{exercise.name}: Min: #{exercise.min}, Max: #{exercise.max} #{exercise.unit}. Image: #{exercise.image or 'None'}" if exercise
-    res.send message or "I don't know about that exercise"
+    if exercise
+      message = "#{exercise.name}: Min: #{exercise.min}, Max: #{exercise.max} #{exercise.unit}. Image: #{exercise.image or 'None'}"
+
+      robot.emit 'slack-attachment', 
+        channel: res.envelope.room,
+        content:
+          color: '#439FE0'
+          title: "Exercise: #{exercise.name}"
+          fallback: message
+          thumb_url: exercise.image
+          fields: [{
+            title: 'Minimum'
+            value: exercise.min
+            short: true
+          }, {
+            title: 'Maximum'
+            value: exercise.max
+            short: true
+          }, {
+            title: 'Unit'
+            value: exercise.unit
+            short: true
+          }]
+    else
+      res.send "I don't know about that exercise"
 
   robot.respond /start exercising/i, (res) ->
-    exerciseRoom = res.envelope.room if !exerciseRoom
-    doAutomaticWorkout()
+    if exerciseTimeout
+      res.reply "we're already exercising in #{exerciseRoom}!"
+    else
+      exerciseRoom = res.envelope.room if !exerciseRoom
+      doAutomaticWorkout()
 
   robot.respond /stop exercising/i, (res) ->
-    clearTimeout(exerciseTimeout)
-    res.send "Stopping automatic workout"
+    if !exerciseRoom || res.envelope.room != exerciseRoom
+      res.reply "We're not working out in this room!"
+    else
+      clearTimeout(exerciseTimeout)
+      exerciseTimeout = null
+      exerciseRoom = null
+      res.send "Stopping automatic workout"
 
