@@ -64,8 +64,10 @@ module.exports = (robot) ->
   choosePeople = ->
     users = activeUsers()
     numPeople = users.length
-    maxPeople = 1 if numPeople < maxPeople
-    _.sample(users, maxPeople)
+    robot.logger.debug "#{numPeople} active users in channel."
+    amount = maxPeople
+    amount = 1 if numPeople < maxPeople
+    _.sample(users, amount)
 
   chooseExercise = ->
     exercise = _.sample getExercises()
